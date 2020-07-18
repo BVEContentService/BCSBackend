@@ -1,90 +1,119 @@
 package Model
 
 import (
-    "OBPkg/Config"
-    "OBPkg/Utility"
-    "encoding/json"
-    "encoding/xml"
+	"OBPkg/Config"
+	"OBPkg/Utility"
+	"encoding/json"
+	"encoding/xml"
 )
 
 type PlatformType int
+
 func (pt PlatformType) String() string {
-    return Config.CurrentConfig.Platform[int(pt)];
+	ptName, ok := mapKey(Config.CurrentConfig.Platform.DatabaseMap, int(pt))
+	if !ok {
+		return ""
+	}
+	return ptName
 }
-func (pt *PlatformType) MarshalJSON() ([]byte, error) {
-    return json.Marshal(pt.String())
+func (pt PlatformType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(pt.String())
 }
 func (pt *PlatformType) UnmarshalJSON(data []byte) error {
-    ptInt, ok := mapkey(Config.CurrentConfig.Platform, string(data))
-    if !ok {
-        return Utility.ERR_BAD_PARAMETER
-    }
-    *pt = PlatformType(ptInt)
-    return nil
+	var str string
+	if json.Unmarshal(data, &str) != nil {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	ptInt, ok := Config.CurrentConfig.Platform.DatabaseMap[str]
+	if !ok {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	*pt = PlatformType(ptInt)
+	return nil
 }
-func (pt *PlatformType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err error) {
-    return e.EncodeElement(pt.String(), start)
+func (pt PlatformType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err error) {
+	return e.EncodeElement(pt.String(), start)
 }
 func (pt *PlatformType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-    var s string
-    if err := d.DecodeElement(&s, &start); err != nil { return err }
-    ptInt, ok := mapkey(Config.CurrentConfig.Platform, s)
-    if !ok {
-        return Utility.ERR_BAD_PARAMETER
-    }
-    *pt = PlatformType(ptInt)
-    return nil
+	var s string
+	if err := d.DecodeElement(&s, &start); err != nil {
+		return err
+	}
+	ptInt, ok := Config.CurrentConfig.Platform.DatabaseMap[s]
+	if !ok {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	*pt = PlatformType(ptInt)
+	return nil
 }
 
 type ServiceType int
+
 func (st ServiceType) String() string {
-    return Config.CurrentConfig.FileService.DatabaseMap[int(st)];
+	stName, ok := mapKey(Config.CurrentConfig.FileService.DatabaseMap, int(st))
+	if !ok {
+		return ""
+	}
+	return stName
 }
-func (st *ServiceType) MarshalJSON() ([]byte, error) {
-    return json.Marshal(st.String())
+func (st ServiceType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(st.String())
 }
 func (st *ServiceType) UnmarshalJSON(data []byte) error {
-    ptInt, ok := mapkey(Config.CurrentConfig.FileService.DatabaseMap, string(data))
-    if !ok {
-        return Utility.ERR_BAD_PARAMETER
-    }
-    *st = ServiceType(ptInt)
-    return nil
+	var str string
+	if json.Unmarshal(data, &str) != nil {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	ptInt, ok := Config.CurrentConfig.FileService.DatabaseMap[str]
+	if !ok {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	*st = ServiceType(ptInt)
+	return nil
 }
-func (st *ServiceType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err error) {
-    return e.EncodeElement(st.String(), start)
+func (st ServiceType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err error) {
+	return e.EncodeElement(st.String(), start)
 }
 func (st *ServiceType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-    var s string
-    if err := d.DecodeElement(&s, &start); err != nil { return err }
-    stInt, ok := mapkey(Config.CurrentConfig.FileService.DatabaseMap, s)
-    if !ok {
-        return Utility.ERR_BAD_PARAMETER
-    }
-    *st = ServiceType(stInt)
-    return nil
-}
-
-func mapkey(m map[int]string, value string) (key int, ok bool) {
-    for k, v := range m {
-        if v == value {
-            key = k
-            ok = true
-            return
-        }
-    }
-    return
+	var s string
+	if err := d.DecodeElement(&s, &start); err != nil {
+		return err
+	}
+	stInt, ok := Config.CurrentConfig.FileService.DatabaseMap[s]
+	if !ok {
+		return Utility.ERR_BAD_PARAMETER
+	}
+	*st = ServiceType(stInt)
+	return nil
 }
 
 type File struct {
-    ID              uint
-    PackageID       uint
-    Package         *Package        `xml:",omitempty" json:",omitempty"`
-    Platform        *PlatformType
-    Validated       *bool
-    Version         string
-    Service         *ServiceType    `xml:",omitempty" json:",omitempty"`
-    URLParam        NullString      `xml:",omitempty" json:",omitempty"`
-    AuthParam       NullString      `xml:",omitempty" json:",omitempty"`
-    FetchURL        string          `xml:",omitempty" json:",omitempty" gorm:"-"`
+	ID             uint
+	PackageID      uint
+	Package        *Package `xml:"-" json:"-"`
+	Platform       PlatformType
+	Validated      bool
+	NeedValidation bool `gorm:"-"`
+	Version        string
+	Size           string
+	Service        ServiceType `xml:",omitempty" json:",omitempty"`
+	URLParam       string      `xml:",omitempty" json:",omitempty"`
+	AuthParam      string      `xml:",omitempty" json:",omitempty"`
+	FetchURL       string      `xml:",omitempty" json:",omitempty" gorm:"-"`
+}
+
+func (f *File) AfterFind() (err error) {
+	f.NeedValidation = Config.CurrentConfig.Platform.NeedValidation[f.Platform.String()]
+	return
+}
+
+func mapKey(m map[string]int, value int) (key string, ok bool) {
+	for k, v := range m {
+		if v == value {
+			key = k
+			ok = true
+			return
+		}
+	}
+	return
 }

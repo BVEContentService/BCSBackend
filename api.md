@@ -41,18 +41,49 @@ An Error Structure will be returned as response when an API error arose.
 |---------|----|------------------------------------------------------|
 |   101   |404 | The path requested is not an API Endpoint.           |
 |   102   |405 | This Endpoint does not support the requested Method. |
-|   111   |400 | A Request Body is required but not present.          |
-|   112   |400 | The Request Body is not in the required format.      |
-|   113   |422 | Some fields in the Request Body failed validation.   |
+|   111   |400 | The Request Body is not in the required format.      |
+|   112   |422 | Some fields in the Request Body failed validation.   |
 |   201   |404 | The Resource requested does not exist.               |
 |   202   |422 | The Identifier Name is already taken.                |
 |   203   |422 | The Identifier GUID is already taken.                |
+|   204   |422 | Duplicate Files with same Version on same Platform.  |
 |   211   |401 | Generic JWT error. More info is in the message.      |
 |   212   |403 | Incorrect Username or Password at login.             |
 |   221   |403 | Such an operation is beyond your authority.          |
-|   302   |500 | Database connection failed to establish.             |
 | No Body |500 | Server crashed. Contact the developer immediately.   |
 > Error #211 is most commonly caused by token expiration.
 > Token renewal or another login can be attempted.
 
 ## Endpoints
+
+## File Validation
+
+  **Validated** is a property that can be modified by a moderator, to indicate 
+  whether a File shall be displayed to the public.  
+  However, not all Files uploaded to the platform needs to be validated. The
+  genres of Files that needs to be validated can be specified in the server 
+  configuration.
+  Therefore, if a File is not required to be validated (**NeedValidation**=False),
+  then it can be displayed regardless of the value of the **Validated** field.
+  
+  Here describes the handling of the two aforementioned fields on different API
+  Endpoints. Please notice the difference:
+  
+  - GET /packages (?platform Filter) :  
+    Only validated files will be considered when collecting the available
+    platforms of a package. Files that do not need validation are considered
+    validated.
+    
+  - GET /files (?validated Filter) :  
+    Files that do not need validation are considered validated. **Platform** field
+    is not affected.
+    
+  - GET /packages/:id :  
+    **Platforms** Field: Only validated files will be considered when collecting
+    the available platforms of a package. Files that do not need validation are 
+    considered validated.  
+    **Files[]** Array: All packages regardless of whether it is validated are all 
+    included. Both fields are included in the Files[] response and the
+    **Validated** field is not changed to accommodate for the **NeedValidation**
+    field. It is up to the client to accommodate for both the fields and decide 
+    if the unvalidated packages should be hidden.

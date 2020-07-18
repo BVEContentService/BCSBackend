@@ -6,18 +6,18 @@ import (
 
 type Package struct {
 	gorm.Model
-	Identifier      string
-	GUID            NullString      `xml:",omitempty" json:",omitempty"`
-	Name            String3         `gorm:"embedded;embedded_prefix:name_"`
-	UploaderID      uint
-	Uploader        *Uploader       `xml:",omitempty" json:",omitempty"`
-	Author          *Developer      `gorm:"embedded;embedded_prefix:author_" xml:",omitempty" json:",omitempty"`
-	Homepage        NullString      `xml:",omitempty" json:",omitempty"`
-	Thumbnail       NullString      `xml:",omitempty" json:",omitempty"`
-	ThumbnailLQ     NullString      `xml:",omitempty" json:",omitempty"`
-	Description     NullString      `xml:",omitempty" json:",omitempty" gorm:"type:text"`
-	IsRepost        bool            `xml:",omitempty" json:",omitempty" gorm:"-"` // For POST requests only
-	Files           []File
+	Identifier  string
+	GUID        string  `xml:",omitempty" json:",omitempty"`
+	Name        String3 `gorm:"embedded;embedded_prefix:name_"`
+	UploaderID  uint
+	Uploader    *Uploader      `xml:",omitempty" json:",omitempty"`
+	Author      *Developer     `xml:",omitempty" json:",omitempty" gorm:"embedded;embedded_prefix:author_"`
+	Homepage    string         `xml:",omitempty" json:",omitempty"`
+	Thumbnail   string         `xml:",omitempty" json:",omitempty"`
+	ThumbnailLQ string         `xml:",omitempty" json:",omitempty"`
+	Description string         `xml:",omitempty" json:",omitempty" gorm:"type:text"`
+	Files       []File         `xml:",omitempty" json:",omitempty"`
+	Platforms   []PlatformType `xml:",omitempty" json:",omitempty" gorm:"-"` // Collected on the fly
 }
 
 func (p *Package) AfterFind() (err error) {

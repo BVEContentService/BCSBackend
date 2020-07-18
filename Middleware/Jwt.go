@@ -16,8 +16,8 @@ type login struct {
 }
 
 type JWTUser struct {
-	UID             uint
-	Privilege       Model.Privilege
+	UID       uint
+	Privilege Model.Privilege
 }
 
 var AuthMiddleware *jwt.GinJWTMiddleware
@@ -33,13 +33,13 @@ func GetAuthMiddleware() *jwt.GinJWTMiddleware {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:       "obpkg",
 		Key:         []byte(Config.CurrentConfig.JWT.SecretKey),
-		Timeout:     time.Hour,
-		MaxRefresh:  time.Hour,
+		Timeout:     time.Duration(Config.CurrentConfig.JWT.Timeout),
+		MaxRefresh:  time.Duration(Config.CurrentConfig.JWT.MaxRefresh),
 		IdentityKey: "uid",
 		PayloadFunc: func(data interface{}) jwt.MapClaims {
 			if v, ok := data.(*JWTUser); ok {
 				return jwt.MapClaims{
-					"uid" : v.UID,
+					"uid":       v.UID,
 					"privilege": v.Privilege,
 				}
 			}
@@ -48,7 +48,7 @@ func GetAuthMiddleware() *jwt.GinJWTMiddleware {
 		IdentityHandler: func(c *gin.Context) interface{} {
 			claims := jwt.ExtractClaims(c)
 			return &JWTUser{
-				UID: uint(claims["uid"].(float64)),
+				UID:       uint(claims["uid"].(float64)),
 				Privilege: Model.Privilege(claims["privilege"].(float64)),
 			}
 		},
@@ -62,12 +62,14 @@ func GetAuthMiddleware() *jwt.GinJWTMiddleware {
 				!Utility.BCryptValidateHash(loginVals.Password, u.Password) {
 				return nil, Utility.ERR_BAD_CERT
 			} else {
-				return &JWTUser{ UID: u.ID, Privilege: u.Privilege }, nil
+				return &JWTUser{UID: u.ID, Privilege: u.Privilege}, nil
 			}
 		},
-		Authorizator: func (data interface{}, c *gin.Context) bool {
+		Authorizator: func(data interface{}, c *gin.Context) bool {
 			v, ok := data.(*JWTUser)
-			if !ok { return false }
+			if !ok {
+				return false
+			}
 			c.Set("user", v)
 			return true
 		},

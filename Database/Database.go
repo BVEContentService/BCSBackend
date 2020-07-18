@@ -23,8 +23,7 @@ func GetDB() *gorm.DB {
 			return nil
 		}
 		DB.LogMode(Config.CurrentConfig.MySql.Debug)
-		DB.AutoMigrate(&Model.Uploader{}, &Model.File{}, &Model.Package{})
-		log.Println("Database Connection has been Established!")
+		DB.AutoMigrate(&Model.Uploader{}, &Model.File{}, &Model.Package{}, &Model.RegisterRequest{})
 	}
 	return DB
 }
