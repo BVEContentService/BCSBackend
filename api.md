@@ -2,7 +2,7 @@
 This documentation provides information on making requests to the REST API server,
 as well as parsing the response returned from it.
 ## Conventions
-1. **API Root Path URL**:  `https://obpkg.zbx1425.tk/api/v1`
+1. **API Root Path URL**:  `https://api.bvecs.tk/v1`
 2. Most Endpoints support both XML and JSON request body. **Content-Type** header 
    of `application/xml` and `application/json` are both supported.
    XML is assumed if **Content-Type** is not specified.

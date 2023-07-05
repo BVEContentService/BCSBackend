@@ -9,14 +9,13 @@ import (
 	"github.com/badoux/checkmail"
 	"github.com/gin-gonic/gin"
 	"github.com/lithammer/shortuuid"
-	"regexp"
 	"time"
 )
 
 type activateRequestModel struct {
-	Token    string
-	Name     Model.String3
-	Username string
+	Token string
+	Name  Model.String3
+	//Username string
 	Password string
 }
 
@@ -83,6 +82,7 @@ func AuthRegister(c *gin.Context) error {
 	}
 	requestCheckModel.Token = shortuuid.New()
 	requestCheckModel.Expiry = time.Now().Add(time.Duration(Config.CurrentConfig.SMTP.TokenDuration))
+	requestCheckModel.Affair = Model.Register
 	if err := Utility.EmailSendConfirmation(requestCheckModel.Email, requestCheckModel.Token,
 		requestCheckModel.Expiry.UTC().Format("2006-01-02 15:00 UTC")); err != nil {
 		return err
@@ -116,25 +116,28 @@ func AuthCheckToken(c *gin.Context) error {
 	} else {
 		return Utility.ERR_EMAIL_TMR_LATE
 	}
-	return Utility.SUCCESS_NO_BODY
+	Utility.MarshalResponse(c, 200, requestCheckModel)
+	//return Utility.SUCCESS_NO_BODY
+	return nil
 }
 
 func AuthActivate(c *gin.Context) error {
 	// The "Activate" process actually creates the account
 	var db = Database.GetDB()
-	var requestModel activateRequestModel
 	var requestCheckModel Model.RegisterRequest
+	var requestModel activateRequestModel
 	var uploaderCheckModel Model.Uploader
 	if Utility.UnMarshalBody(c, &requestModel) != nil {
 		return Utility.ERR_BAD_PARAMETER
 	}
-	if requestModel.Token == "" || requestModel.Username == "" || requestModel.Password == "" ||
+	//if requestModel.Token == "" || requestModel.Username == "" || requestModel.Password == "" ||
+	if requestModel.Token == "" || requestModel.Password == "" ||
 		requestModel.Name.Local == "" {
 		return Utility.ERR_BAD_PARAMETER
 	}
-	if requestModel.Username == "" {
-		return Utility.ERR_BAD_PARAMETER
-	}
+	//if requestModel.Username == "" {
+	//	return Utility.ERR_BAD_PARAMETER
+	//}
 	if !db.Where("token = ?", requestModel.Token).First(&requestCheckModel).RecordNotFound() {
 		if time.Now().After(requestCheckModel.Expiry) {
 			return Utility.ERR_EMAIL_TMR_LATE
@@ -145,22 +148,22 @@ func AuthActivate(c *gin.Context) error {
 	if checkmail.ValidateFormat(requestCheckModel.Email) != nil {
 		return Utility.ERR_BAD_PARAMETER
 	}
-	if !regexp.MustCompile("^[a-z][a-z0-9-_]*$").MatchString(requestModel.Username) {
-		return Utility.ERR_BAD_PARAMETER
-	}
+	//if !regexp.MustCompile("^[a-z][a-z0-9-_]*$").MatchString(requestModel.Username) {
+	//	return Utility.ERR_BAD_PARAMETER
+	//}
 	if !db.Where("email = ?", requestCheckModel.Email).First(&uploaderCheckModel).RecordNotFound() {
 		return Utility.ERR_EMAIL_TAKEN
 	}
-	if !db.Where("username = ?", requestModel.Username).First(&uploaderCheckModel).RecordNotFound() {
-		return Utility.ERR_NAME_TAKEN
-	}
+	//if !db.Where("username = ?", requestModel.Username).First(&uploaderCheckModel).RecordNotFound() {
+	//	return Utility.ERR_NAME_TAKEN
+	//}
 	uploaderCheckModel = Model.Uploader{
 		Developer: Model.Developer{
 			Name:  requestModel.Name,
 			Email: requestCheckModel.Email,
 		},
-		Validated:   false,
-		Username:    requestModel.Username,
+		Validated: false,
+		//Username:    requestModel.Username,
 		Password:    Utility.BCryptCalculateHash(requestModel.Password),
 		Description: "",
 		Privilege:   Model.Normal,
@@ -169,4 +172,45 @@ func AuthActivate(c *gin.Context) error {
 	db.Delete(&requestCheckModel)
 	Utility.MarshalResponse(c, 200, uploaderCheckModel)
 	return nil
+}
+
+func AuthEmailAffair(c *gin.Context) error {
+	var db = Database.GetDB()
+	var requestCheckModel Model.RegisterRequest
+	if !db.Where("token = ?", c.Param("token")).First(&requestCheckModel).RecordNotFound() {
+		if time.Now().After(requestCheckModel.Expiry) {
+			return Utility.ERR_EMAIL_TMR_LATE
+		}
+	} else {
+		return Utility.ERR_EMAIL_TMR_LATE
+	}
+	if requestCheckModel.Affair == Model.ResetPassword {
+		var modifyingModel Model.Uploader
+		uploaderID := requestCheckModel.UserID
+		if db.First(&modifyingModel, uint(uploaderID)).RecordNotFound() {
+			return Utility.ERR_DATA_NOT_FOUND
+		}
+		modifyingModel.Password = Utility.BCryptCalculateHash(requestCheckModel.Email)
+		db.Save(&modifyingModel)
+		db.Delete(&requestCheckModel)
+		return Utility.SUCCESS
+	} else if requestCheckModel.Affair == Model.ChangeEmail {
+		var uploaderCheckModel Model.Uploader
+		if checkmail.ValidateFormat(requestCheckModel.Email) != nil {
+			return Utility.ERR_BAD_PARAMETER
+		}
+		if !db.Where("email = ?", requestCheckModel.Email).First(&uploaderCheckModel).RecordNotFound() {
+			return Utility.ERR_EMAIL_TAKEN
+		}
+		var modifyingModel Model.Uploader
+		uploaderID := requestCheckModel.UserID
+		if db.First(&modifyingModel, uint(uploaderID)).RecordNotFound() {
+			return Utility.ERR_DATA_NOT_FOUND
+		}
+		modifyingModel.Email = requestCheckModel.Email
+		db.Save(&modifyingModel)
+		db.Delete(&requestCheckModel)
+		return Utility.SUCCESS
+	}
+	return Utility.ERR_BAD_PARAMETER
 }

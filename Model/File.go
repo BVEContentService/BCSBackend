@@ -10,6 +10,9 @@ import (
 type PlatformType int
 
 func (pt PlatformType) String() string {
+	if int(pt) == -1 {
+		return "+"
+	}
 	ptName, ok := mapKey(Config.CurrentConfig.Platform.DatabaseMap, int(pt))
 	if !ok {
 		return ""
@@ -22,11 +25,15 @@ func (pt PlatformType) MarshalJSON() ([]byte, error) {
 func (pt *PlatformType) UnmarshalJSON(data []byte) error {
 	var str string
 	if json.Unmarshal(data, &str) != nil {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData("Unmarshal, PlatformType")
+	}
+	if str == "+" {
+		*pt = PlatformType(-1)
+		return nil
 	}
 	ptInt, ok := Config.CurrentConfig.Platform.DatabaseMap[str]
 	if !ok {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData("PlatformType not in DatabaseMap")
 	}
 	*pt = PlatformType(ptInt)
 	return nil
@@ -37,11 +44,15 @@ func (pt PlatformType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err e
 func (pt *PlatformType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var s string
 	if err := d.DecodeElement(&s, &start); err != nil {
-		return err
+		return Utility.ERR_BAD_PARAMETER.WithData("Unmarshal, PlatformType")
+	}
+	if s == "+" {
+		*pt = PlatformType(-1)
+		return nil
 	}
 	ptInt, ok := Config.CurrentConfig.Platform.DatabaseMap[s]
 	if !ok {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData("PlatformType not in DatabaseMap")
 	}
 	*pt = PlatformType(ptInt)
 	return nil
@@ -61,12 +72,12 @@ func (st ServiceType) MarshalJSON() ([]byte, error) {
 }
 func (st *ServiceType) UnmarshalJSON(data []byte) error {
 	var str string
-	if json.Unmarshal(data, &str) != nil {
-		return Utility.ERR_BAD_PARAMETER
+	if err := json.Unmarshal(data, &str); err != nil {
+		return Utility.ERR_BAD_PARAMETER.WithData("Unmarshal, ServiceType")
 	}
 	ptInt, ok := Config.CurrentConfig.FileService.DatabaseMap[str]
 	if !ok {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData("ServiceType not in DatabaseMap")
 	}
 	*st = ServiceType(ptInt)
 	return nil
@@ -77,11 +88,11 @@ func (st ServiceType) MarshalXML(e *xml.Encoder, start xml.StartElement) (err er
 func (st *ServiceType) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var s string
 	if err := d.DecodeElement(&s, &start); err != nil {
-		return err
+		return Utility.ERR_BAD_PARAMETER.WithData("Unmarshal, ServiceType")
 	}
 	stInt, ok := Config.CurrentConfig.FileService.DatabaseMap[s]
 	if !ok {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData("ServiceType not in DatabaseMap")
 	}
 	*st = ServiceType(stInt)
 	return nil
@@ -93,7 +104,8 @@ type File struct {
 	Package        *Package `xml:"-" json:"-"`
 	Platform       PlatformType
 	Validated      bool
-	NeedValidation bool `gorm:"-"`
+	NeedValidation bool   `gorm:"-"`
+	RejectReason   string `xml:",omitempty" json:",omitempty"`
 	Version        string
 	Size           string
 	Service        ServiceType `xml:",omitempty" json:",omitempty"`

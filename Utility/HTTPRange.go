@@ -24,7 +24,7 @@ func ParseRange(c *gin.Context, count int) (int, int, error) {
 	if err1 != nil || err2 != nil || end < begin {
 		return 0, 0, ERR_BAD_RANGE
 	}
-	return max(0, begin), min(end+1, count), nil
+	return min(max(begin, 0), count), min(max(end+1, 0), count), nil
 }
 
 func min(x, y int) int {

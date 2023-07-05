@@ -2,5 +2,5 @@
 obpkg
 OBPkg.exe
 obpkg.json
-GeoLite2-Country.mmdb
-build_linux.bat
+/*.mmdb
+/*.bat

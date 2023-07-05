@@ -30,6 +30,7 @@ func SetRoutes(router *gin.Engine) {
 	router.POST("/auth/register", Utility.Wrapper(Controller.AuthRegister))
 	router.POST("/auth/check_token", Utility.Wrapper(Controller.AuthCheckToken))
 	router.POST("/auth/activate", Utility.Wrapper(Controller.AuthActivate))
+	router.GET("/auth/activate/:token", Utility.Wrapper(Controller.AuthEmailAffair))
 	router.POST("/auth/change_password", authMiddleware, Utility.Wrapper(Controller.AuthChangePassword))
 
 	router.HEAD("/packages", Utility.Wrapper(Controller.PackageHead))

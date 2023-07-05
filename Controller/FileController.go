@@ -21,13 +21,17 @@ func fileGetFullList(c *gin.Context, platform Model.PlatformType, validated *boo
 		tx = tx.Where("platform = ?", platform)
 	}
 	tx.Find(&returningModels)
-	canViewParameter := requestUser != nil && requestUser.(*Middleware.JWTUser).Privilege >= Model.SiteAdmin
+	canViewParameter := requestUser != nil && requestUser.(*Middleware.JWTUser).Privilege >= Model.Validator
 	for index := range returningModels {
 		fileCreateFetchURL(&returningModels[index], c, !canViewParameter)
 	}
 	if validated != nil {
 		for _, model := range returningModels {
 			var actuallyValidated = !model.NeedValidation || model.Validated
+
+			if !actuallyValidated && len(model.RejectReason) != 0 {
+				actuallyValidated = true // Don't show files that are seen by the admins
+			}
 			if actuallyValidated == *validated {
 				filteredModels = append(filteredModels, model)
 			}
@@ -86,7 +90,11 @@ func FileList(c *gin.Context) error {
 	}
 	c.Header("Accept-Ranges", "files")
 	c.Header("Content-Range", fmt.Sprintf("files %d-%d/%d", begin, end-1, len(returningModels)))
-	Utility.MarshalResponse(c, 206, returningModels[begin:end])
+	if len(returningModels) == 0 {
+		Utility.MarshalResponse(c, 206, []Model.File{})
+	} else {
+		Utility.MarshalResponse(c, 206, returningModels[begin:end])
+	}
 	return nil
 }
 
@@ -102,7 +110,7 @@ func FileGet(c *gin.Context) error {
 		return Utility.ERR_DATA_NOT_FOUND
 	}
 
-	var canViewParameter = requestUser.Privilege >= Model.SiteAdmin || returningModel.Package.UploaderID == requestUser.UID
+	var canViewParameter = requestUser.Privilege >= Model.Validator || returningModel.Package.UploaderID == requestUser.UID
 	fileCreateFetchURL(&returningModel, c, !canViewParameter)
 	returningModel.Package = nil
 
@@ -116,32 +124,49 @@ func FilePost(c *gin.Context) error {
 	var requestUser = c.MustGet("user").(*Middleware.JWTUser)
 	fileID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return Utility.ERR_BAD_PARAMETER
+		return Utility.ERR_BAD_PARAMETER.WithData(err.Error())
 	}
-	if db.First(&originalModel, uint(fileID)).RecordNotFound() {
+	if db.Preload("Package").First(&originalModel, uint(fileID)).RecordNotFound() {
 		return Utility.ERR_DATA_NOT_FOUND
 	}
 	modifyingModel = originalModel
-	if Utility.UnMarshalBody(c, &requestModel) != nil ||
-		Utility.UnMarshalBody(c, &modifyingModel) != nil {
-		return Utility.ERR_BAD_PARAMETER
+	if errUnMarshal := Utility.UnMarshalBody(c, &requestModel); errUnMarshal != nil {
+		return Utility.ERR_BAD_PARAMETER.WithData(errUnMarshal.Error())
+	}
+	if errUnMarshal := Utility.UnMarshalBody(c, &modifyingModel); errUnMarshal != nil {
+		return Utility.ERR_BAD_PARAMETER.WithData(errUnMarshal.Error())
 	}
 
 	fileClean(&modifyingModel)
 	modifyingModel.ID = uint(fileID)
 	if requestUser.Privilege < Model.Moderator {
-		if originalModel.Package.UploaderID != c.MustGet("user").(*Middleware.JWTUser).UID {
+		if originalModel.Package.UploaderID != requestUser.UID {
 			return Utility.ERR_LOW_PRIV
 		}
 		modifyingModel.PackageID = originalModel.PackageID
 		if Config.CurrentConfig.Platform.NeedValidation[modifyingModel.Platform.String()] {
 			modifyingModel.Validated = false
 		}
+		modifyingModel.RejectReason = ""
 	}
 	if err := fileValidate(&modifyingModel); err != "" {
 		return Utility.ERR_FORM_VALIDATE.WithData(err)
 	}
 	db.Save(&modifyingModel)
+
+	if originalModel.Validated != modifyingModel.Validated {
+		var containingPackage Model.Package
+		if !db.Preload("Uploader").First(&containingPackage, originalModel.PackageID).RecordNotFound() {
+			_ = Utility.EmailSendFileUpdate(containingPackage.Uploader.Email, modifyingModel.Validated,
+				modifyingModel.ID, containingPackage.ID, containingPackage.Name.Local, modifyingModel.RejectReason)
+		}
+	} else if !modifyingModel.Validated && len(originalModel.RejectReason) == 0 && len(modifyingModel.RejectReason) > 0 {
+		var containingPackage Model.Package
+		if !db.Preload("Uploader").First(&containingPackage, originalModel.PackageID).RecordNotFound() {
+			_ = Utility.EmailSendFileUpdate(containingPackage.Uploader.Email, modifyingModel.Validated,
+				modifyingModel.ID, containingPackage.ID, containingPackage.Name.Local, modifyingModel.RejectReason)
+		}
+	}
 
 	return FileGet(c)
 }
@@ -176,7 +201,8 @@ func FilePut(c *gin.Context) error {
 	}
 	db.Create(&creatingModel)
 
-	db.First(&creatingModel, creatingModel.ID)
+	// See PackagePut
+	//db.First(&creatingModel, creatingModel.ID)
 	Utility.MarshalResponse(c, 201, creatingModel)
 	return nil
 }
@@ -242,20 +268,7 @@ func fileValidate(newFileModel *Model.File) string {
 }
 
 func fileCreateFetchURL(f *Model.File, c *gin.Context, hideParameter bool) {
-	var countryCode string
-	if ccode, ok := c.Get("countryCode"); ok {
-		countryCode = ccode.(string)
-	} else {
-		countryCode = Database.GetIPCountryCode(c.ClientIP())
-		c.Set("countryCode", countryCode)
-	}
-	keyWithCountry := f.Service.String() + ":" + strings.ToLower(countryCode)
-	var urlTemplate string
-	if val, ok := Config.CurrentConfig.FileService.URLMap[keyWithCountry]; ok {
-		urlTemplate = val
-	} else {
-		urlTemplate = Config.CurrentConfig.FileService.URLMap[f.Service.String()]
-	}
+	var urlTemplate = Config.CurrentConfig.FileService.URLMap[f.Service.String()]
 	urlTemplate = strings.Replace(urlTemplate, "{FILE_ID}", strconv.Itoa(int(f.ID)), -1)
 	urlTemplate = strings.Replace(urlTemplate, "{URL_PARAM}", f.URLParam, -1)
 	urlTemplate = strings.Replace(urlTemplate, "{AUTH_PARAM}", f.AuthParam, -1)

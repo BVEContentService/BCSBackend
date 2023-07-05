@@ -39,6 +39,7 @@ type JWTConfig struct {
 }
 type SMTPConfig struct {
 	Host          string
+	Sender        string
 	Username      string
 	Password      string
 	TokenDuration Duration `json:"token_duration"`

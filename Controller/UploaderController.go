@@ -20,6 +20,7 @@ func UploaderGet(c *gin.Context) error {
 		return Utility.ERR_DATA_NOT_FOUND
 	}
 	for index := range uploaderModel.Packages {
+		packageCollectPlatforms(&uploaderModel.Packages[index], false)
 		// Reduce Response Size
 		uploaderModel.Packages[index].Description = ""
 	}
@@ -44,7 +45,7 @@ func UploaderPost(c *gin.Context) error {
 	}
 
 	modifyingModel.ID = uint(uploaderID)
-	modifyingModel.Username = originalModel.Username
+	//modifyingModel.Username = originalModel.Username
 	modifyingModel.Password = originalModel.Password
 	if requestUser.Privilege < Model.Moderator {
 		modifyingModel.Email = originalModel.Email
@@ -72,9 +73,9 @@ func uploaderValidate(newModel *Model.Uploader) string {
 	if newModel.Name.Local == "" {
 		return "Name.Local"
 	}
-	if newModel.Username == "" {
-		return "Username"
-	}
+	//if newModel.Username == "" {
+	//	return "Username"
+	//}
 	switch newModel.Privilege {
 	case Model.Normal, Model.Validator, Model.Moderator, Model.SiteAdmin:
 		break

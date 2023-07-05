@@ -10,6 +10,7 @@ type Error struct {
 
 var (
 	SUCCESS_NO_BODY     = &Error{Code: 204, ErrorCode: 001, Msg: ""}
+	SUCCESS             = &Error{Code: 200, ErrorCode: 001, Msg: "Success! Thank you."}
 	ERR_NOT_FOUND_URL   = &Error{Code: 404, ErrorCode: 101, Msg: "API Endpoint not Found"}
 	ERR_NOT_ALLOWED     = &Error{Code: 405, ErrorCode: 102, Msg: "Method not Allowed"}
 	ERR_BAD_PARAMETER   = &Error{Code: 400, ErrorCode: 111, Msg: "Parameter not in Correct Format"}
@@ -29,7 +30,11 @@ var (
 )
 
 func (e *Error) Error() string {
-	return e.Msg
+	if e.Data != "" {
+		return e.Msg + ": " + e.Data
+	} else {
+		return e.Msg
+	}
 }
 
 func (e *Error) WithData(data string) *Error {

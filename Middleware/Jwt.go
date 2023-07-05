@@ -5,7 +5,7 @@ import (
 	"OBPkg/Database"
 	"OBPkg/Model"
 	"OBPkg/Utility"
-	jwt "github.com/appleboy/gin-jwt"
+	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 	"time"
 )
@@ -58,7 +58,7 @@ func GetAuthMiddleware() *jwt.GinJWTMiddleware {
 				return "", Utility.ERR_BAD_PARAMETER
 			}
 			var u Model.Uploader
-			if db.Where("username = ?", loginVals.Username).First(&u).RecordNotFound() ||
+			if db.Where("email = ?", loginVals.Username).First(&u).RecordNotFound() ||
 				!Utility.BCryptValidateHash(loginVals.Password, u.Password) {
 				return nil, Utility.ERR_BAD_CERT
 			} else {

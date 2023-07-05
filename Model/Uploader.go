@@ -14,10 +14,10 @@ const (
 type Uploader struct {
 	gorm.Model
 	Developer
-	Validated   bool
-	Username    string
+	Validated bool
+	//Username    string
 	Password    string `xml:"-" json:"-"`
 	Description string `gorm:"type:text"`
 	Privilege   Privilege
-	Packages    []Package `xml:",omitempty" json:",omitempty"`
+	Packages    []Package `xml:">Package,omitempty" json:",omitempty"`
 }
